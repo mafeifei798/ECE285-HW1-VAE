@@ -1,0 +1,55 @@
+{
+  "real_count": 624,
+  "fake_count_fid": 624,
+  "fake_count_is": 5000,
+  "fid_ignite_probability_1000": 0.02097914734863293,
+  "fid_torchvision_pool3_2048": 45.777283200795466,
+  "is_ignite_full": 1.9629520578694093,
+  "is_splits": {
+    "mean": 1.9577773482543521,
+    "std": 0.05061017836840739,
+    "scores": [
+      1.9339915524889177,
+      1.9497716103259632,
+      1.8932304737374162,
+      2.0304810405289326,
+      1.958416236460006,
+      1.8906818258528018,
+      1.9360278759157508,
+      1.9822559665963313,
+      1.9460446308236643,
+      2.056872269813737
+    ]
+  },
+  "reference": {
+    "is_real_test": 2.123057086685763,
+    "is_generated_same_count": 1.9330961753352955,
+    "fid_train_real_vs_test_pool3_2048": 17.013215477829476,
+    "fid_train_real_vs_test_probability_1000": 0.005382903854921961,
+    "fid_reconstruction_vs_test_pool3_2048": 34.39612122113232,
+    "fid_reconstruction_vs_test_probability_1000": 0.022461507783863188
+  },
+  "validation_mse": 0.0015989656676538289,
+  "validation_ssim": 0.8165255524705827,
+  "test_mse": 0.002013987318302194,
+  "test_ssim": 0.7881099161776567,
+  "sampler": {
+    "name": "gmm",
+    "temperature": 0.85,
+    "gmm_components": 5,
+    "fit_images": 4566
+  },
+  "checkpoint_epoch": 300,
+  "model_config": {
+    "image_size": 64,
+    "latent_dim": 256,
+    "base_channels": 32,
+    "likelihood": "gaussian",
+    "observation_std": 0.01,
+    "prior": "standard_normal",
+    "arch": "resnet",
+    "res_blocks": 1
+  },
+  "seed": 20261023,
+  "evaluation_split": "test"
+}

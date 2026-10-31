@@ -1,0 +1,15 @@
+{
+  "metric": "nearest-training pixel MSE on grayscale [0,1] images",
+  "checkpoint_epoch": 300,
+  "training_images": 4566,
+  "generated_images": 5000,
+  "holdout_images": 624,
+  "generated_exact_pixel_matches": 0,
+  "generated_min_mse": 0.004211023104094578,
+  "generated_median_mse": 0.008723186770112456,
+  "holdout_min_mse": 0.0035508953887927724,
+  "holdout_median_mse": 0.009368350664407919,
+  "holdout_5th_percentile": 0.005815151661920896,
+  "generated_fraction_below_holdout_5th_percentile": 0.0154,
+  "interpretation_limit": "Pixel proximity is a screening diagnostic, not a proof of memorization or its absence."
+}

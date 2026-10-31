@@ -1,0 +1,14 @@
+{
+  "sampler": "gmm",
+  "components": 5,
+  "temperature": 0.85,
+  "fid_pool3_2048": 35.18361203812714,
+  "fid_probability_1000": 0.02873958450120795,
+  "is": 1.9330961753352955,
+  "holdout_latent_loglik": -13.29387582012535,
+  "checkpoint_epoch": 300,
+  "evaluation_split": "holdout",
+  "num_latent_draws": 5000,
+  "fid_image_count": 624,
+  "is_image_count": 624
+}

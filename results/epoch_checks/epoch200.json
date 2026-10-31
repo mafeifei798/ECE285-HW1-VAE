@@ -1,0 +1,55 @@
+{
+  "real_count": 624,
+  "fake_count_fid": 624,
+  "fake_count_is": 5000,
+  "fid_ignite_probability_1000": 0.028568783720121615,
+  "fid_torchvision_pool3_2048": 40.518789596718676,
+  "is_ignite_full": 1.9111497190568614,
+  "is_splits": {
+    "mean": 1.9068662815042614,
+    "std": 0.02682806403366834,
+    "scores": [
+      1.867715011160152,
+      1.9216803370380082,
+      1.93025603321077,
+      1.8994130956978197,
+      1.9073374689990643,
+      1.906985304240371,
+      1.8878614672705212,
+      1.8723953086861662,
+      1.964107079195184,
+      1.9109117095445562
+    ]
+  },
+  "reference": {
+    "is_real_holdout": 2.1977495194107686,
+    "is_generated_same_count": 1.8623833381687853,
+    "fid_train_real_vs_holdout_pool3_2048": 14.41109753249205,
+    "fid_train_real_vs_holdout_probability_1000": 0.0039135721960755765,
+    "fid_reconstruction_vs_holdout_pool3_2048": 34.265977157155135,
+    "fid_reconstruction_vs_holdout_probability_1000": 0.036156024452824675
+  },
+  "validation_mse": 0.0015086670027812943,
+  "validation_ssim": 0.826458573139987,
+  "holdout_mse": 0.0017624161124471216,
+  "holdout_ssim": 0.799125011933694,
+  "sampler": {
+    "name": "gmm",
+    "temperature": 0.85,
+    "gmm_components": 5,
+    "fit_images": 4566
+  },
+  "checkpoint_epoch": 200,
+  "model_config": {
+    "image_size": 64,
+    "latent_dim": 256,
+    "base_channels": 32,
+    "likelihood": "gaussian",
+    "observation_std": 0.01,
+    "prior": "standard_normal",
+    "arch": "resnet",
+    "res_blocks": 1
+  },
+  "seed": 20261023,
+  "evaluation_split": "holdout"
+}
