@@ -3,16 +3,11 @@
 import argparse
 import json
 import math
-import os
 from pathlib import Path
 from types import SimpleNamespace
 
-os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")  # CPU fallback for ops MPS lacks
-os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
-
 import numpy as np
 from PIL import Image
-from skimage.metrics import structural_similarity
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Subset
@@ -23,11 +18,11 @@ from ignite.metrics import FID, InceptionScore
 from data import ChestXrayDataset
 from latent_density import fit_gaussian_mixture, sample_gaussian_mixture
 from model import load_vae_checkpoint
+from validation_metrics import paired_reconstruction_metrics as reconstruction_metrics
 
 
 def configure_runtime(threads=8):
     torch.set_num_threads(threads)
-    torch.use_deterministic_algorithms(True, warn_only=True)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     if torch.cuda.is_available():
@@ -49,10 +44,10 @@ def fid_from_features(real, fake):
 
 def inception_score(probabilities):
     probabilities = torch.as_tensor(probabilities).double().cpu()
-    marginal = probabilities.mean(0)
-    entropy = (marginal * torch.log(marginal + 1e-16)).sum()
-    conditional = (probabilities * torch.log(probabilities + 1e-16)).sum(1).mean()
-    return float(torch.exp(conditional - entropy))
+    metric = InceptionScore(num_features=probabilities.shape[1],
+                            feature_extractor=nn.Identity(), device="cpu")
+    metric.update(probabilities)
+    return float(metric.compute())
 
 
 def compute_metrics_from_features(features, splits=10):
@@ -64,21 +59,18 @@ def compute_metrics_from_features(features, splits=10):
     scores = [inception_score(group) for group in torch.tensor_split(fake_probs, splits)]
     fid_metric = FID(num_features=real_probs.shape[1], feature_extractor=nn.Identity(), device="cpu")
     fid_metric.update((fake_probs[:count].double(), real_probs.double()))
-    is_metric = InceptionScore(num_features=fake_probs.shape[1], feature_extractor=nn.Identity(), device="cpu")
-    is_metric.update(fake_probs.double())
     return {
         "real_count": count, "fake_count_fid": count, "fake_count_is": len(fake_probs),
         "fid_ignite_probability_1000": float(fid_metric.compute()),
         "fid_torchvision_pool3_2048": fid_from_features(
             features["real_pool3"], features["fake_pool3"][:count]),
-        "is_ignite_full": float(is_metric.compute()),
+        "is_ignite_full": inception_score(fake_probs),
         "is_splits": {"mean": float(np.mean(scores)), "std": float(np.std(scores)), "scores": scores},
     }
 
 
 def reference_metrics(features, split="test"):
-    """Context for the scores: what real images and reconstructions achieve under the same
-    protocol. FID uses the same sample count as the main FID."""
+    """Score real images and reconstructions using the same reference count."""
     real_probs, real_pool = features["real_probabilities"], features["real_pool3"]
     count = len(real_probs)
     metrics = {f"is_real_{split}": inception_score(real_probs),
@@ -138,7 +130,7 @@ def resolve_device(name):
 
 
 def to_uint8(images):
-    """Use the same floor quantization as the original evaluation."""
+    """Convert decoder means to 8-bit pixels by truncation."""
     return images.mul(255).clamp_(0, 255).to(torch.uint8)
 
 
@@ -149,7 +141,7 @@ def dataset_pixels(dataset):
 
 
 def training_split(data_root, cache_dir, image_size, checkpoint):
-    """The training images the VAE learned from, and its held-out ones (None if it has none)."""
+    """Recover the training and holdout subsets from the saved indices."""
     images = ChestXrayDataset(data_root, "train", image_size, cache_dir)
     holdout = list(checkpoint.get("holdout_indices") or [])
     held = set(holdout)
@@ -170,7 +162,7 @@ def sample_latents(model, count, temperature, seed, device, mixture=None):
     if mixture is not None:
         return torch.from_numpy(sample_gaussian_mixture(mixture, count, temperature, seed)).float()
     epsilon = torch.randn(count, model.latent_dim, generator=torch.Generator().manual_seed(seed))
-    return model.latent_from_base(temperature * epsilon.to(device)).cpu()
+    return (temperature * epsilon.to(device)).cpu()
 
 
 @torch.inference_mode()
@@ -188,19 +180,6 @@ def reconstruct_images(model, pixels_u8, batch_size, device):
         mu, _ = model.encode(batch.float().div(255).to(device))
         reconstructed.append(to_uint8(model.pixel_mean(model.decode(mu)).cpu()))
     return torch.cat(reconstructed)
-
-
-@torch.inference_mode()
-def reconstruction_metrics(model, dataset, device, batch_size):
-    errors, similarities = [], []
-    for batch in DataLoader(dataset, batch_size=batch_size):
-        mu, _ = model.encode(batch.to(device))
-        reconstructed = model.pixel_mean(model.decode(mu)).cpu()
-        errors.extend((batch - reconstructed).square().mean((1, 2, 3)).tolist())
-        similarities.extend(structural_similarity(
-            x[0].numpy(), y[0].numpy(), data_range=1.0, gaussian_weights=True,
-            sigma=1.5, use_sample_covariance=False) for x, y in zip(batch, reconstructed))
-    return {"mse": float(np.mean(errors)), "ssim": float(np.mean(similarities))}
 
 
 @torch.inference_mode()
@@ -279,45 +258,35 @@ def evaluate(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--checkpoint")
+    parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--data-root", default="data/chest_xray")
-    parser.add_argument("--cache-dir")
+    parser.add_argument("--cache-dir", default="cache")
     parser.add_argument("--split", default="test", choices=("test", "holdout"),
                         help="Use training holdout for selection, and test only after selection")
-    parser.add_argument("--features", help="Compute scores from a saved evaluation_features.npz")
     parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--device", default="auto", help="auto, cpu, cuda or mps")
+    parser.add_argument("--device", default="auto", choices=("auto", "cpu", "cuda"))
     parser.add_argument("--num-samples", type=int, default=5000)
-    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--cpu-threads", type=int, default=8)
     parser.add_argument("--seed", type=int, default=20261023)
     parser.add_argument("--is-splits", type=int, default=10)
     parser.add_argument("--sampler", default="prior", choices=("prior", "gmm"),
                         help="prior: the model's prior; gmm: a Gaussian mixture fitted to the "
                              "training posterior means")
-    parser.add_argument("--gmm-components", type=int, default=10)
+    parser.add_argument("--gmm-components", type=int, default=5)
     parser.add_argument("--mixture-file", help="Reuse a mixture saved during holdout selection")
     parser.add_argument("--temperature", type=float, default=1.0,
                         help="Scale of the sampling noise around the prior or mixture means")
     parser.add_argument("--reference-baselines", action="store_true",
                         help="Also score real training images and test reconstructions")
     args = parser.parse_args()
-    if not args.features and not args.checkpoint:
-        parser.error("Provide --checkpoint or --features")
     if args.batch_size < 1 or args.cpu_threads < 1 or args.gmm_components < 1:
         parser.error("batch-size, cpu-threads and gmm-components must be positive")
     if args.temperature <= 0:
         parser.error("temperature must be positive")
     configure_runtime(args.cpu_threads)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    if args.features:
-        with np.load(args.features, allow_pickle=False) as saved:
-            features = dict(saved)
-        metrics = compute_metrics_from_features(features, args.is_splits)
-        if "train_real_pool3" in features or "reconstruction_pool3" in features:
-            metrics["reference"] = reference_metrics(features, args.split)
-    else:
-        metrics = evaluate(args)
+    metrics = evaluate(args)
     metrics["evaluation_split"] = args.split
     (args.output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
     print(json.dumps(metrics, indent=2))

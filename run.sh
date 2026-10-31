@@ -6,10 +6,10 @@ DEVICE=${DEVICE:-auto}
 CHECK_EPOCHS=${CHECK_EPOCHS:-0}
 
 python train.py --cache-dir "$CACHE" --device "$DEVICE" \
-  --output-dir output/native300 --image-size 64 --arch resnet --base-channels 32 \
-  --latent-dim 256 --likelihood gaussian --observation-std .01 \
-  --prior standard_normal --epochs 300 --batch-size 64 --holdout 624 \
-  --learning-rate .001 --lr-schedule cosine --min-learning-rate .00001 \
+  --output-dir output/native300 --base-channels 32 \
+  --latent-dim 256 --observation-std .01 \
+  --epochs 300 --batch-size 64 --holdout 624 \
+  --learning-rate .001 --min-learning-rate .00001 \
   --grad-clip 5 --save-every 25 --seed 2026
 
 python sweep_sampler.py --checkpoint output/native300/last.pt --cache-dir "$CACHE" \
