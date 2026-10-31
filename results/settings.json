@@ -11,8 +11,6 @@
     "likelihood": "gaussian",
     "observation_std": 0.01,
     "prior": "standard_normal",
-    "initialize_from": null,
-    "resume": null,
     "epochs": 300,
     "batch_size": 64,
     "learning_rate": 0.001,
