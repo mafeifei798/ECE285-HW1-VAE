@@ -2,7 +2,7 @@
 
 A residual VAE trained on both classes of the Chest X-Ray Pneumonia dataset.
 The report uses the epoch-300 checkpoint, with a five-component Gaussian mixture
-sampler at temperature 0.85.
+sampler at temperature 0.85. The [report](ECE285_HW1_Report.pdf) is included.
 
 ## Setup
 
@@ -95,16 +95,16 @@ Figure 3 shows four selected test reconstructions. Metrics cover
 the complete evaluation batches. Nearest-neighbor enlargement is for display.
 
 `epoch_checks.csv` keeps stochastic train/holdout MSE separate from posterior-mean
-holdout MSE. Report Table 1 uses the stochastic train/holdout pair from the logged
+holdout MSE. Report Table 2 uses the stochastic train/holdout pair from the logged
 Gaussian reconstruction terms.
 `sampler_sweep.csv` contains the epoch-300 sampler comparison;
 `sampling_seeds.csv` contains three fixed draws for epochs 250 and 300.
-Their pooled FID means and sample standard deviations are 38.1 ± 1.06 and
-36.1 ± 1.43. With the previously chosen 1.5-FID tolerance for preferring an
+Their pooled FID means and sample standard deviations are 38.1 ± 1.1 and
+36.1 ± 1.4. With the previously chosen 1.5-FID tolerance for preferring an
 earlier checkpoint, epoch 300 remains selected among the checked epochs.
 
 The nearest-training check on all 5,000 final samples finds no exact pixel matches.
 77/5,000 (1.54%) have nearest-training MSE below the holdout fifth percentile;
 see `nn_check.json`. This check does not rule out other forms of memorization.
 
-The archive excludes datasets, cached Inception features and model weights.
+The repository excludes datasets, cached Inception features and model weights.
